@@ -14,7 +14,7 @@ import { MembersService } from 'src/app/_services/members.service';
 })
 export class MemberEditComponent implements OnInit {
   @ViewChild('editForm') editForm: NgForm | undefined;
-  // Stop user from leaving unsaved for cahnges via url change
+  // Stops user from leaving the page via entering a new url when they have unsaved changes
   @HostListener('window:beforeunload', ['$event']) unloadNotification(
     $event: any
   ) {
