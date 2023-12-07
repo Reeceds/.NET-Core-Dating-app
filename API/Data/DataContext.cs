@@ -11,6 +11,7 @@ public class DataContext : DbContext
 
     public DbSet<AppUser> Users { get; set; }
     public DbSet<UserLike> Likes { get; set; }
+    public DbSet<Message> Messages { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder) // Built in method, must spell conrrect 'OnModelCreating'
     {
@@ -30,5 +31,15 @@ public class DataContext : DbContext
             .WithMany(l => l.LikedByUsers) // Users that have liked this target user
             .HasForeignKey(s => s.TargetUserId)
             .OnDelete(DeleteBehavior.Cascade);
+        
+        builder.Entity<Message>()
+            .HasOne(u => u.Recipient) // A recipient
+            .WithMany(m => m.MessagesReceived) // Can receive many messages
+            .OnDelete(DeleteBehavior.Restrict); // Still want the recipient of a message to be able to view a message even if the sender has deleted their profile
+        
+        builder.Entity<Message>()
+            .HasOne(u => u.Sender) // A sender
+            .WithMany(m => m.MessagesSent) // Can send many messages
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

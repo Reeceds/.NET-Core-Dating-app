@@ -11,6 +11,7 @@ import { ServerErrorComponent } from './errors/server-error/server-error.compone
 import { MemberListComponent } from './members/member-list/member-list.component';
 import { MemberEditComponent } from './members/member-edit/member-edit.component';
 import { preventUnsavedChangesGuard } from './_guards/prevent-unsaved-changes.guard';
+import { memberDetailedResolver } from './_resolvers/member-detailed.resolver';
 
 const routes: Routes = [
   { path: '', component: HomeComponent },
@@ -23,7 +24,11 @@ const routes: Routes = [
         path: 'members',
         component: MemberListComponent,
       },
-      { path: 'members/:username', component: MemberDetailComponent },
+      {
+        path: 'members/:username',
+        component: MemberDetailComponent,
+        resolve: { member: memberDetailedResolver }, // Passes 'Member' data on the root instead of a component having to retrieve it on construction
+      },
       {
         path: 'member/edit',
         component: MemberEditComponent,
@@ -36,7 +41,7 @@ const routes: Routes = [
   { path: 'errors', component: TestErrorComponent },
   { path: 'not-found', component: NotFoundComponent },
   { path: 'server-error', component: ServerErrorComponent },
-  { path: '**', component: NotFoundComponent, pathMatch: 'full' }, // If the route is not specified in this lest then return user home
+  { path: '**', component: NotFoundComponent, pathMatch: 'full' }, // If the route is not specified in this list then return user home
 ];
 
 @NgModule({
