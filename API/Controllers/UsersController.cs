@@ -29,7 +29,7 @@ public class UsersController : BaseApiController
     public async Task <ActionResult<PagedList<MemberDto>>> GetUsers([FromQuery]UserParams userParams) // When sending a query string as params, you msut specify [FromQuery] as it sends an object instead of a string
     {
         var currentUser = await _userRepository.GetUserByUsernameAsync(User.GetUsername());
-        userParams.CurrentUsername = currentUser.UserName;
+        userParams.CurrentUsername = currentUser.UserName; // Sets 'userParams.CurrentUsername' to 'currentUser.UserName' as 'CurrentUsername' is not initially passed on 'userParams'
 
         if (string.IsNullOrEmpty(userParams.Gender))
         {

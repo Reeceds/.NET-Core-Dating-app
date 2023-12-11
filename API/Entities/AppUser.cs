@@ -1,11 +1,9 @@
-﻿namespace API.Entities;
+﻿using Microsoft.AspNetCore.Identity;
 
-public class AppUser
+namespace API.Entities;
+
+public class AppUser : IdentityUser<int> // Set the type on <int> to make sure 'Id' is an int in the db. No need for properties Id, UserName, PasswordHash, PasswordSalt in this class as 'IdentityUser' takes care of this 
 {
-    public int Id { get; set; }
-    public string UserName { get; set; }
-    public byte[] PasswordHash { get; set; }
-    public byte[] PasswordSalt { get; set; }
     public DateOnly DateOfBirth { get; set; }
     public string KnownAs { get; set; }
     public DateTime Created { get; set; } = DateTime.UtcNow;
@@ -23,4 +21,5 @@ public class AppUser
 
     public List<Message> MessagesSent { get; set; }
     public List<Message> MessagesReceived { get; set; }
+    public ICollection<AppUserRole> UserRoles { get; set; } // Navigates to the join table which is the 'AppUserRole' collection. Can use 'ICollection' or 'List', both work in similar ways
 }

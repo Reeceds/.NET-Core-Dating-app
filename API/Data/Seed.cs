@@ -2,15 +2,16 @@
 using System.Text;
 using System.Text.Json;
 using API.Entities;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace API.Data;
 
 public class Seed
 {
-    public static async Task SeedUsers (DataContext context)
+    public static async Task SeedUsers (UserManager<AppUser> userManager, RoleManager<AppRole> roleManager)
     {
-        if (await context.Users.AnyAsync()) return; // If there are users in the db then do not sync seed data
+        if (await userManager.Users.AnyAsync()) return; // If there are users in the db then do not sync seed data
 
         var userData = await File.ReadAllTextAsync("Data/UserSeedData.json");
 
@@ -18,17 +19,31 @@ public class Seed
 
         var users = JsonSerializer.Deserialize<List<AppUser>>(userData, options);
 
-        foreach (var user in users)
+        var roles = new List<AppRole> // Create new roles
         {
-            using var hmac = new HMACSHA512();
+            new AppRole{Name = "Member"},
+            new AppRole{Name = "Admin"},
+            new AppRole{Name = "Moderator"},
+        };
 
-            user.UserName = user.UserName.ToLower();
-            user.PasswordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes("Pa$$w0rd"));
-            user.PasswordSalt = hmac.Key;
-
-            context.Users.Add(user);
+        foreach (var role in roles)
+        {
+            await roleManager.CreateAsync(role); // Add the roles to the role manager
         }
 
-        await context.SaveChangesAsync();
+        foreach (var user in users)
+        {
+            user.UserName = user.UserName.ToLower();
+            await userManager.CreateAsync(user, "Pa$$w0rd");
+            await userManager.AddToRoleAsync(user, "Member"); // Add users to the role
+        }
+
+        var admin = new AppUser
+        {
+            UserName = "admin"
+        };
+
+        await userManager.CreateAsync(admin, "Pa$$w0rd"); // Create admin user
+        await userManager.AddToRolesAsync(admin, new[] {"Admin", "Moderator"}); // Give admin user multiple roles (Admin & Moderator)
     }
 }

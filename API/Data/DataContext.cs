@@ -1,21 +1,34 @@
 ﻿using API.Entities;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace API.Data;
 
-public class DataContext : DbContext
+public class DataContext : IdentityDbContext<AppUser, AppRole, int, IdentityUserClaim<int>, AppUserRole, IdentityUserLogin<int>, IdentityRoleClaim<int>, IdentityUserToken<int>> // These are specified beacsue of the Id's for 'AppUser & AppRole' being set to int and also because of the join table <AppUserRole>. Make sure these are are in this order.
 {
     public DataContext(DbContextOptions options) : base(options)
     {
     }
 
-    public DbSet<AppUser> Users { get; set; }
     public DbSet<UserLike> Likes { get; set; }
     public DbSet<Message> Messages { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder) // Built in method, must spell conrrect 'OnModelCreating'
     {
         base.OnModelCreating(builder);
+
+        builder.Entity<AppUser>()
+            .HasMany(ur => ur.UserRoles) // AppUser has many UserRoles
+            .WithOne(u => u.User)
+            .HasForeignKey(ur => ur.UserId)
+            .IsRequired(); // ForeignKey can't be null
+        
+        builder.Entity<AppRole>() // Flipside of the above relationship
+            .HasMany(ur => ur.UserRoles)
+            .WithOne(u => u.Role)
+            .HasForeignKey(ur => ur.RoleId)
+            .IsRequired();
 
         builder.Entity<UserLike>()
             .HasKey(k => new { k.SourceUserId, k.TargetUserId }); // Represents primary key used inside the Likes table
