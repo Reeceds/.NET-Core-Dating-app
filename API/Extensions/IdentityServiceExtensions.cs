@@ -29,6 +29,23 @@ public static class IdentityServiceExtensions
                 ValidateIssuer = false,
                 ValidateAudience = false
             };
+
+            // For signalR authentication, bearerToken must be passed on query params as signalR does not use http so it cannot be passed as http header
+            options.Events = new JwtBearerEvents
+            {
+                OnMessageReceived = context =>
+                {
+                    var accessToken = context.Request.Query["access_token"]; // Gets the bearerToken, MUST specify "access_token" 
+                    var path = context.HttpContext.Request.Path;
+
+                    if(!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs")) // '/hubs' specified in Program.cs file
+                    {
+                        context.Token = accessToken;
+                    }
+
+                    return Task.CompletedTask;
+                }
+            };
         });
 
         //! Always add Authorization AFTER Authentication
