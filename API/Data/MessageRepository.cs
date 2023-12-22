@@ -80,9 +80,7 @@ public class MessageRepository : IMessageRepository
 
     public async Task<IEnumerable<MessageDto>> GetMessageThread(string currentUserName, string recipientUserName)
     {
-        var messages = await _context.Messages
-            .Include(u => u.Sender).ThenInclude(p => p.Photos) // Gets photos. Include the 'Sender' as 'Photos' are a related entity for the 'AppUser' ('Sender' is a property of 'Message' entity & is of type 'AppUser')
-            .Include(u => u.Recipient).ThenInclude(p => p.Photos) // Gets photos. Include the 'Recipient' as 'Photos' are a related entity for the 'AppUser' ('Recipient' is a property of 'Message' entity & is of type 'AppUser')
+        var query = _context.Messages
             .Where(
                 m => m.RecipientUsername == currentUserName &&
                 m.RecipientDeleted == false &&
@@ -92,9 +90,9 @@ public class MessageRepository : IMessageRepository
                 m.SenderUsername == currentUserName
             )
             .OrderBy(m => m.MessageSent) // Orders by latest messages at the bottom
-            .ToListAsync();
+            .AsQueryable();
 
-        var unreadMessages = messages.Where(m => m.DateRead == null && m.RecipientUsername == currentUserName).ToList(); // Get messages that are unread by the current user. use 'ToList()' as there no need to access database again when 'ToListAsync()' was called above and is stored in memory
+        var unreadMessages = query.Where(m => m.DateRead == null && m.RecipientUsername == currentUserName).ToList(); // Get messages that are unread by the current user
 
         if (unreadMessages.Any())
         {
@@ -102,20 +100,13 @@ public class MessageRepository : IMessageRepository
             {
                 message.DateRead = DateTime.UtcNow;
             }
-
-            await _context.SaveChangesAsync(); // Save changed to db if any unread messages have now been updated and read
         }
 
-        return _mapper.Map<IEnumerable<MessageDto>>(messages);
+        return await query.ProjectTo<MessageDto>(_mapper.ConfigurationProvider).ToListAsync();
     }
 
     public void RemoveConnection(Connection connection)
     {
         _context.Connections.Remove(connection);
-    }
-
-    public async Task<bool> SaveAllAsync()
-    {
-        return await _context.SaveChangesAsync() > 0;
     }
 }

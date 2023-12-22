@@ -11,15 +11,13 @@ namespace API.SignalR;
 [Authorize]
 public class MessageHub : Hub
 {
-    private readonly IMessageRepository _messageRepository;
-    private readonly IUserRepository _userRepository;
+    private readonly IUnitOfWork _uow;
     private readonly IMapper _mapper;
     private readonly IHubContext<PresenceHub> _presenceHub;
 
-    public MessageHub(IMessageRepository messageRepository, IUserRepository userRepository, IMapper mapper, IHubContext<PresenceHub> _presenceHub)
+    public MessageHub(IUnitOfWork uow, IMapper mapper, IHubContext<PresenceHub> _presenceHub)
     {
-        _messageRepository = messageRepository;
-        _userRepository = userRepository;
+        _uow = uow;
         _mapper = mapper;
         this._presenceHub = _presenceHub;
     }
@@ -34,7 +32,9 @@ public class MessageHub : Hub
 
         await Clients.Group(groupName).SendAsync("UpdatedGroup", group);
 
-        var messages = await _messageRepository.GetMessageThread(Context.User.GetUsername(), otherUser);
+        var messages = await _uow.MessageRepository.GetMessageThread(Context.User.GetUsername(), otherUser);
+
+        if (_uow.HasChanges()) await _uow.Complete(); // Saves changes to the db if there are any
 
         await Clients.Caller.SendAsync("ReceiveMessageThread", messages); // Users will receive messages from signalR istead of an API call
     }
@@ -52,8 +52,8 @@ public class MessageHub : Hub
 
         if (username == createMessageDto.RecipientUsername.ToLower()) throw new HubException("You cannot send messages to yourself."); // If the current user is trying to send message to themself. Throw exception as we don't have access to http responses in Hub
         
-        var sender = await _userRepository.GetUserByUsernameAsync(username);
-        var recipient = await _userRepository.GetUserByUsernameAsync(createMessageDto.RecipientUsername);
+        var sender = await _uow.UserRepository.GetUserByUsernameAsync(username);
+        var recipient = await _uow.UserRepository.GetUserByUsernameAsync(createMessageDto.RecipientUsername);
 
         if (recipient == null) throw new Exception("Not found user");
 
@@ -68,7 +68,7 @@ public class MessageHub : Hub
 
         var groupName = GetGroupName(sender.UserName, recipient.UserName);
 
-        var group = await _messageRepository.GetMessageGroup(groupName);
+        var group = await _uow.MessageRepository.GetMessageGroup(groupName);
 
         // Checks if two users from a group are active on the messaging section and updates the timestamp of the messages to be the current time (functionality for messages being displayed as 'message read')
         if (group.Connections.Any(x => x.Username == recipient.UserName))
@@ -86,9 +86,9 @@ public class MessageHub : Hub
             }
         }
 
-        _messageRepository.AddMessage(message); // Add this new message to the message repo
+        _uow.MessageRepository.AddMessage(message); // Add this new message to the message repo
 
-        if (await _messageRepository.SaveAllAsync())
+        if (await _uow.Complete())
         {
             await Clients.Group(groupName).SendAsync("NewMessage", _mapper.Map<MessageDto>(message));
         }
@@ -102,19 +102,19 @@ public class MessageHub : Hub
 
     private async Task<Group> AddToGroup(string groupName)
     {
-        var group = await _messageRepository.GetMessageGroup(groupName); // Gets the group
+        var group = await _uow.MessageRepository.GetMessageGroup(groupName); // Gets the group
         var connection = new Connection(Context.ConnectionId, Context.User.GetUsername()); // Create a new connection
 
         if (group == null)
         // If there is no group, create a new one and add it to the message repository
         {
             group = new Group(groupName);
-            _messageRepository.AddGroup(group);
+            _uow.MessageRepository.AddGroup(group);
         }
 
         group.Connections.Add(connection); // Add the new connection to the existing or new group
 
-        if (await _messageRepository.SaveAllAsync()) return group; // SaveAllAsync() return a bool which is what this AddToGroup() function returns
+        if (await _uow.Complete()) return group; // SaveAllAsync() return a bool which is what this AddToGroup() function returns
 
         throw new HubException("Failed to add to group");
     }
@@ -122,11 +122,11 @@ public class MessageHub : Hub
     private async Task<Group> RemoveFromMessageGroup()
     {
         // Removes connection from db. Does not remove from messageGroup in SignalR
-        var group = await _messageRepository.GetGroupForConnection(Context.ConnectionId);
+        var group = await _uow.MessageRepository.GetGroupForConnection(Context.ConnectionId);
         var connection = group.Connections.FirstOrDefault(x => x.ConnectionId == Context.ConnectionId);
-        _messageRepository.RemoveConnection(connection);
+        _uow.MessageRepository.RemoveConnection(connection);
 
-        if (await _messageRepository.SaveAllAsync()) return group;
+        if (await _uow.Complete()) return group;
 
         throw new HubException("Failed to remove from group");
     }

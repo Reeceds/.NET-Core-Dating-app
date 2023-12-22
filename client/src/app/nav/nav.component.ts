@@ -22,8 +22,12 @@ export class NavComponent implements OnInit {
   ngOnInit(): void {}
 
   login() {
+    // The model object is set using the form in the html
     this.accountService.login(this.model).subscribe({
-      next: () => this.router.navigateByUrl('/members'),
+      next: () => {
+        this.router.navigateByUrl('/members');
+        this.model = {}; // Clears the username/password fields when user logs out
+      },
     });
   }
 
